@@ -1,73 +1,201 @@
-# Welcome to your Lovable project
+# Stock Market Simulator
 
-## Project info
+고등학교 경영동아리에서 사용할 “가상 주식시장 모의투자 게임”을 만들고 싶다.
+아래 세계관, 역할, 기능, 작동 방식, 변화 규칙을 최대한 그대로 구현해줘. 코드를 어떻게 짜는지는 네가 자유롭게 결정해.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+전체 세계관과 목표
 
-## How can I edit this code?
+이 앱은 “가짜 주식시장” 하나를 시뮬레이션한다.
 
-There are several ways of editing your application.
+참가자는 모두 고등학생이고, 경영·투자 수업용 게임이다.
 
-**Use Lovable**
+목표는 제한된 기간 동안(예: 1시간 수업, 혹은 며칠간) 최대한 높은 수익률을 내는 것이다.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+실제 증권사 API는 전혀 쓰지 않고, 가격과 뉴스, 이벤트는 전부 인공적으로 생성되거나 교사가 직접 눌러서 작동시키는 방식이어야 한다.​​
 
-Changes made via Lovable will be committed automatically to this repo.
+사용자 종류와 기본 흐름
 
-**Use your preferred IDE**
+사용자 유형은 두 가지다.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+“교사/운영자”: 시장을 시작·정지하고, 뉴스·이벤트를 발생시키고, 종목을 설정한다.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+“학생 참가자”: 닉네임으로 입장해서 가상 자산으로 매수·매도만 한다.
 
-Follow these steps:
+한 번의 게임 라운드 예시는 다음과 같다.
+
+교사가 게임을 시작하고, 초기 종목 리스트와 초기 가격이 보인다.
+
+학생들은 각자 계정(닉네임)을 만들고, 주어진 가상 현금으로 매수/매도를 한다.
+
+시간이 지나면서 가격과 뉴스가 바뀌고, 그에 따라 학생들이 다시 거래를 조정한다.
+
+게임이 끝나면, 학생별 최종 수익률과 순위를 보여준다.​​
+
+종목과 가격의 기본 규칙
+
+시장에는 최소 5개 이상의 가상 종목이 있다. 각 종목은
+
+이름(예: “에듀테크코”),
+
+코드,
+
+산업(IT, 소비재 등),
+
+초기 가격,
+
+변동성 수준(낮음/중간/높음)을 가진다.
+
+가격은 “시간이 지날 때마다 자동으로 조금씩 랜덤하게 움직이는 구조”여야 한다.
+
+예: 5초마다 각 종목 가격이 이전 가격에서 일정 비율만큼 위아래로 변한다.
+
+변동성이 높은 종목은 같은 시간에도 더 크게 움직인다.
+
+가격이 0 이하로 내려가지는 않도록 최소 가격 바닥을 둔다.
+
+뉴스와 이벤트 시스템
+
+이 게임의 핵심은 “뉴스가 가격에 영향을 준다”는 경험을 주는 것이다.
+
+뉴스 종류 예시
+
+시장 전체 호재: “중앙은행, 기준금리 인하 발표” → 대부분 종목에 일정 시간 동안 상승 편향.
+
+시장 전체 악재: “전쟁 가능성 확대” → 대부분 종목에 하락 편향.
+
+개별 종목 호재: “OO전자, 대규모 수출 계약 체결” → 특정 종목의 상승 편향.
+
+개별 종목 악재: “OO식품, 리콜 사태 발생” → 특정 종목의 하락 편향.
+
+운영자는 준비된 뉴스 목록에서 버튼을 눌러 특정 뉴스를 “발생”시킬 수 있다.
+
+뉴스에는 시작 시점과 지속 시간(예: 2분간 유효)이 있다.
+
+유효한 동안에는 관련 종목의 가격이 랜덤하게 움직이되, 전체적으로 위나 아래로 치우치도록 한다.
+
+화면에는
+
+최근에 발생한 뉴스 타임라인,
+
+현재 활성화된 뉴스와 남은 시간,
+
+각 뉴스가 어떤 종목에 영향을 주는지가 표시된다.
+
+참가자(학생) 계정과 거래
+
+학생은 로그인 없이 “닉네임”만 입력하면 새 계정이 만들어진다.
+
+각 계정에는
+
+초기 가상 현금(예: 1,000,000원),
+
+보유 종목 수량과 평균 매입가,
+
+현재 평가금액과 손익,
+
+누적 수익률이 기록된다.
+
+학생이 할 수 있는 행동
+
+종목 목록에서 하나를 선택한다.
+
+현재 가격을 보고, 수량을 입력한 뒤 “매수”나 “매도” 버튼을 누른다.
+
+거래는 항상 “지금 화면에 보이는 시세”로 즉시 체결된다. 주문 대기, 수수료, 세금은 일단 생략하거나 매우 단순화한다.
+
+시스템은 각 거래 후에
+
+계좌의 남은 현금,
+
+보유 주식 수량,
+
+평가손익,
+
+수익률을 즉시 다시 계산해서 보여준다.
+
+랭킹과 피드백 화면
+
+언제든 “실시간 랭킹”을 볼 수 있어야 한다.
+
+기준은 계좌의 전체 자산(현금 + 보유 주식 평가액).
+
+1등부터 n등까지 닉네임, 수익률, 전체 자산을 한눈에 볼 수 있게 한다.
+
+개별 학생은 자신의 거래 히스토리를 볼 수 있다.
+
+언제, 어떤 종목을, 몇 주, 얼마에 사고팔았는지를 간단한 리스트로 제공한다.
+
+게임이 종료되면
+
+최종 랭킹,
+
+최고 수익률,
+
+최저 수익률,
+
+평균 수익률 등을 보여주는 “결과 요약 화면”이 나타난다.
+
+수업용 편의 기능
+
+교사용 기능
+
+게임 시작/일시정지/완전 종료 버튼.
+
+전 종목 가격을 잠깐 멈추고 설명할 수 있는 “일시정지” 상태.
+
+특정 시간(예: 10분, 20분, 30분)에 자동으로 다음 라운드를 시작하거나, 특정 뉴스가 자동으로 나가게 예약할 수 있으면 좋다.​
+
+난이도 조절
+
+가격 변동성을 전체적으로 높이거나 낮추는 설정.
+
+뉴스의 영향력을 세게/약하게 바꾸는 설정.
+
+최소한의 튜토리얼
+
+첫 접속 시, “이 게임은 가짜 돈으로 연습하는 주식시장입니다. 뉴스와 가격 변화를 보면서 매수/매도를 해보세요.” 같은 간단한 설명을 보여준다.​​
+
+작동 방식 요약 (AI가 이해하기 쉽게)
+
+시간 축: 정해진 간격(예: 3~5초)마다 “한 틱”이 흘러간다고 가정한다.
+
+매 틱마다 하는 일
+
+각 종목의 기본 랜덤 움직임을 계산한다(변동성 반영).
+
+현재 활성화된 뉴스·이벤트가 있다면, 관련 종목에 추가적인 상승/하락 편향을 더한다.
+
+계산된 결과로 종목 가격을 갱신하고, 등락률을 다시 계산한다.
+
+모든 참가자의 계좌 평가액과 랭킹을 새 가격 기준으로 다시 계산해 화면에 반영한다.
+
+사용자는 이 흐름 속에서
+
+가격과 뉴스, 랭킹 변화를 보며
+
+수시로 주문을 넣고
+
+게임이 끝날 때까지 전략을 조정하는 경험을 한다.
+
+This project was built with [Lovable](https://lovable.dev).
+
+**Live app**: https://shindorimimitationstock.lovable.app
+
+## Build with Lovable
+
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/e889c9e6-1264-4f20-94c3-ac680cf1ccb7).
+
+- **Ship faster**: describe what you want to build and Lovable handles the code.
+- **Stay in sync**: every change made in Lovable is committed straight to this repository.
+- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+
+## Development
+
+Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
+git clone <this-repository-url>
+cd <repository-name>
 npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
 npm run dev
 ```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
