@@ -14,16 +14,390 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      admin_audit_log: {
+        Row: {
+          action: string
+          admin_user_id: string
+          created_at: string
+          details: Json
+          game_id: string | null
+          id: number
+        }
+        Insert: {
+          action: string
+          admin_user_id: string
+          created_at?: string
+          details?: Json
+          game_id?: string | null
+          id?: never
+        }
+        Update: {
+          action?: string
+          admin_user_id?: string
+          created_at?: string
+          details?: Json
+          game_id?: string | null
+          id?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "admin_audit_log_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      admin_users: {
+        Row: {
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      games: {
+        Row: {
+          code: string
+          created_at: string
+          ended_at: string | null
+          id: string
+          initial_cash: number
+          news_strength_multiplier: number
+          started_at: string | null
+          status: Database["public"]["Enums"]["game_status"]
+          tick_interval_ms: number
+          updated_at: string
+          volatility_multiplier: number
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          initial_cash?: number
+          news_strength_multiplier?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["game_status"]
+          tick_interval_ms?: number
+          updated_at?: string
+          volatility_multiplier?: number
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          ended_at?: string | null
+          id?: string
+          initial_cash?: number
+          news_strength_multiplier?: number
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["game_status"]
+          tick_interval_ms?: number
+          updated_at?: string
+          volatility_multiplier?: number
+        }
+        Relationships: []
+      }
+      holdings: {
+        Row: {
+          avg_price: number
+          game_id: string
+          player_id: string
+          quantity: number
+          stock_id: string
+          updated_at: string
+        }
+        Insert: {
+          avg_price: number
+          game_id: string
+          player_id: string
+          quantity: number
+          stock_id: string
+          updated_at?: string
+        }
+        Update: {
+          avg_price?: number
+          game_id?: string
+          player_id?: string
+          quantity?: number
+          stock_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "holdings_game_id_stock_id_fkey"
+            columns: ["game_id", "stock_id"]
+            isOneToOne: false
+            referencedRelation: "stocks"
+            referencedColumns: ["game_id", "id"]
+          },
+          {
+            foreignKeyName: "holdings_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      news: {
+        Row: {
+          created_at: string
+          description: string
+          duration_seconds: number
+          game_id: string
+          id: string
+          last_activated_at: string | null
+          strength: number
+          target_stock_id: string | null
+          target_stock_name: string | null
+          title: string
+          type: Database["public"]["Enums"]["news_type"]
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          duration_seconds: number
+          game_id: string
+          id: string
+          last_activated_at?: string | null
+          strength: number
+          target_stock_id?: string | null
+          target_stock_name?: string | null
+          title: string
+          type: Database["public"]["Enums"]["news_type"]
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          duration_seconds?: number
+          game_id?: string
+          id?: string
+          last_activated_at?: string | null
+          strength?: number
+          target_stock_id?: string | null
+          target_stock_name?: string | null
+          title?: string
+          type?: Database["public"]["Enums"]["news_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "news_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "news_game_id_target_stock_id_fkey"
+            columns: ["game_id", "target_stock_id"]
+            isOneToOne: false
+            referencedRelation: "stocks"
+            referencedColumns: ["game_id", "id"]
+          },
+        ]
+      }
+      players: {
+        Row: {
+          auth_user_id: string
+          cash: number
+          created_at: string
+          game_id: string
+          id: string
+          nickname: string
+          updated_at: string
+        }
+        Insert: {
+          auth_user_id: string
+          cash: number
+          created_at?: string
+          game_id: string
+          id?: string
+          nickname: string
+          updated_at?: string
+        }
+        Update: {
+          auth_user_id?: string
+          cash?: number
+          created_at?: string
+          game_id?: string
+          id?: string
+          nickname?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "players_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      stocks: {
+        Row: {
+          code: string
+          game_id: string
+          id: string
+          industry: string
+          initial_price: number
+          name: string
+          previous_price: number
+          price: number
+          updated_at: string
+          volatility: Database["public"]["Enums"]["stock_volatility"]
+        }
+        Insert: {
+          code: string
+          game_id: string
+          id: string
+          industry: string
+          initial_price: number
+          name: string
+          previous_price: number
+          price: number
+          updated_at?: string
+          volatility: Database["public"]["Enums"]["stock_volatility"]
+        }
+        Update: {
+          code?: string
+          game_id?: string
+          id?: string
+          industry?: string
+          initial_price?: number
+          name?: string
+          previous_price?: number
+          price?: number
+          updated_at?: string
+          volatility?: Database["public"]["Enums"]["stock_volatility"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stocks_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transactions: {
+        Row: {
+          created_at: string
+          game_id: string
+          id: string
+          player_id: string
+          price: number
+          quantity: number
+          side: Database["public"]["Enums"]["trade_side"]
+          stock_id: string
+          stock_name: string
+        }
+        Insert: {
+          created_at?: string
+          game_id: string
+          id: string
+          player_id: string
+          price: number
+          quantity: number
+          side: Database["public"]["Enums"]["trade_side"]
+          stock_id: string
+          stock_name: string
+        }
+        Update: {
+          created_at?: string
+          game_id?: string
+          id?: string
+          player_id?: string
+          price?: number
+          quantity?: number
+          side?: Database["public"]["Enums"]["trade_side"]
+          stock_id?: string
+          stock_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_game_id_stock_id_fkey"
+            columns: ["game_id", "stock_id"]
+            isOneToOne: false
+            referencedRelation: "stocks"
+            referencedColumns: ["game_id", "id"]
+          },
+          {
+            foreignKeyName: "transactions_player_id_fkey"
+            columns: ["player_id"]
+            isOneToOne: false
+            referencedRelation: "players"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      activate_news: {
+        Args: { p_game_id: string; p_news_id: string }
+        Returns: undefined
+      }
+      execute_trade: {
+        Args: {
+          p_player_id: string
+          p_quantity: number
+          p_request_id: string
+          p_side: Database["public"]["Enums"]["trade_side"]
+          p_stock_id: string
+        }
+        Returns: Json
+      }
+      get_leaderboard: {
+        Args: { p_game_id: string }
+        Returns: {
+          nickname: string
+          player_id: string
+          return_pct: number
+          total_assets: number
+        }[]
+      }
+      is_admin: { Args: { check_user_id?: string }; Returns: boolean }
+      join_game: { Args: { p_nickname: string }; Returns: string }
+      reset_game: { Args: { p_game_id: string }; Returns: undefined }
+      set_game_status: {
+        Args: {
+          p_game_id: string
+          p_status: Database["public"]["Enums"]["game_status"]
+        }
+        Returns: undefined
+      }
+      update_game_settings: {
+        Args: {
+          p_game_id: string
+          p_news_strength_multiplier: number
+          p_tick_interval_ms: number
+          p_volatility_multiplier: number
+        }
+        Returns: undefined
+      }
     }
     Enums: {
-      [_ in never]: never
+      game_status: "waiting" | "running" | "paused" | "ended"
+      news_type:
+        | "market_positive"
+        | "market_negative"
+        | "stock_positive"
+        | "stock_negative"
+      stock_volatility: "low" | "medium" | "high"
+      trade_side: "buy" | "sell"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +524,16 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      game_status: ["waiting", "running", "paused", "ended"],
+      news_type: [
+        "market_positive",
+        "market_negative",
+        "stock_positive",
+        "stock_negative",
+      ],
+      stock_volatility: ["low", "medium", "high"],
+      trade_side: ["buy", "sell"],
+    },
   },
 } as const
