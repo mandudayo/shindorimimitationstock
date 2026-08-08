@@ -1,12 +1,10 @@
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useGameStore } from '@/hooks/useGameStore';
-import { createInitialState } from '@/lib/gameEngine';
-import { saveGameState } from '@/hooks/useGameStore';
 
 const Home = () => {
   const navigate = useNavigate();
-  const { state } = useGameStore();
+  const { state, loading, error } = useGameStore();
 
   const statusLabel: Record<string, string> = {
     waiting: '대기 중',
@@ -28,9 +26,14 @@ const Home = () => {
           뉴스와 가격 변화를 보면서 매수/매도를 해보세요.
           실제 돈은 전혀 사용되지 않습니다!
         </p>
-        {state.status !== 'waiting' && (
+        {!loading && state.status !== 'waiting' && (
           <p className="mt-4 text-sm font-medium text-primary">
-            현재 상태: {statusLabel[state.status]} · 참가자 {state.players.length}명
+            현재 상태: {statusLabel[state.status]} · 참가자 {state.leaderboard.length}명
+          </p>
+        )}
+        {error && (
+          <p className="mt-4 text-sm text-loss max-w-lg mx-auto">
+            서버 연결 오류: {error}
           </p>
         )}
       </div>
@@ -45,16 +48,7 @@ const Home = () => {
       </div>
 
       {state.status === 'ended' && (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            saveGameState(createInitialState());
-            window.location.reload();
-          }}
-        >
-          새 게임 초기화
-        </Button>
+        <p className="text-xs text-muted-foreground">새 게임 초기화는 운영자 화면에서 할 수 있습니다.</p>
       )}
     </div>
   );

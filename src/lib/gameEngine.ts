@@ -35,40 +35,13 @@ export function createInitialState(): GameState {
     newsPool: DEFAULT_NEWS.map(n => ({ ...n })),
     activeNews: [],
     newsHistory: [],
-    players: [],
+    currentPlayer: undefined,
+    leaderboard: [],
     tickInterval: 3000,
     volatilityMultiplier: 1.0,
     newsStrengthMultiplier: 1.0,
     initialCash: 1000000,
   };
-}
-
-export function processTick(state: GameState): GameState {
-  if (state.status !== 'running') return state;
-
-  const now = Date.now();
-  const activeNews = state.activeNews.filter(
-    n => n.activatedAt && (now - n.activatedAt) < n.duration * 1000
-  );
-
-  const volMap: Record<string, number> = { low: 0.003, medium: 0.008, high: 0.018 };
-
-  const stocks = state.stocks.map(stock => {
-    const baseVol = (volMap[stock.volatility] || 0.008) * state.volatilityMultiplier;
-    let change = (Math.random() - 0.5) * 2 * baseVol;
-
-    for (const news of activeNews) {
-      const affects = news.type.startsWith('market') || news.targetStockId === stock.id;
-      if (!affects) continue;
-      const dir = news.type.includes('positive') ? 1 : -1;
-      change += dir * baseVol * 0.4 * news.strength * state.newsStrengthMultiplier;
-    }
-
-    const newPrice = Math.max(100, Math.round(stock.price * (1 + change)));
-    return { ...stock, previousPrice: stock.price, price: newPrice };
-  });
-
-  return { ...state, stocks, activeNews };
 }
 
 export function getPlayerTotalAssets(player: Player, stocks: Stock[]): number {

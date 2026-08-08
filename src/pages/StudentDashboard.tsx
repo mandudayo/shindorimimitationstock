@@ -9,18 +9,36 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Stock } from '@/types/game';
+import { toast } from 'sonner';
 
 const StudentDashboard = () => {
   const navigate = useNavigate();
-  const { state, updateState } = useGameStore();
-  const [playerId, setPlayerId] = useState(() => sessionStorage.getItem('vstock_pid') || '');
+  const { state, loading, actionPending, error, joinGame: joinGameRequest, executeTrade: executeTradeRequest } = useGameStore();
   const [nickname, setNickname] = useState('');
   const [activeTab, setActiveTab] = useState<'stocks' | 'portfolio' | 'ranking' | 'history'>('stocks');
   const [tradeStock, setTradeStock] = useState<Stock | null>(null);
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy');
   const [tradeQty, setTradeQty] = useState('');
 
-  const player = state.players.find(p => p.id === playerId);
+  const player = state.currentPlayer;
+
+  if (loading && !state.id) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <p className="text-sm text-muted-foreground">공유 시장에 연결하는 중...</p>
+      </div>
+    );
+  }
+
+  if (error && !state.id) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6 text-center">
+        <h1 className="text-xl font-bold mb-2">시장에 연결할 수 없습니다</h1>
+        <p className="text-sm text-loss max-w-md">{error}</p>
+        <Button variant="ghost" size="sm" className="mt-4" onClick={() => navigate('/')}>← 홈으로</Button>
+      </div>
+    );
+  }
 
   // Join form
   if (!player) {
@@ -45,22 +63,23 @@ const StudentDashboard = () => {
             onKeyDown={e => e.key === 'Enter' && joinGame()}
             className="bg-secondary border-border"
           />
-          <Button onClick={joinGame} disabled={!nickname.trim() || state.status === 'ended'}>입장</Button>
+          <Button onClick={() => void joinGame()} disabled={!nickname.trim() || state.status === 'ended' || actionPending}>
+            {actionPending ? '입장 중...' : '입장'}
+          </Button>
         </div>
+        {error && <p className="mt-3 text-xs text-loss">{error}</p>}
         <Button variant="ghost" size="sm" className="mt-4" onClick={() => navigate('/')}>← 홈으로</Button>
       </div>
     );
   }
 
-  function joinGame() {
+  async function joinGame() {
     if (!nickname.trim()) return;
-    const id = crypto.randomUUID();
-    updateState(s => ({
-      ...s,
-      players: [...s.players, { id, nickname: nickname.trim(), cash: s.initialCash, holdings: [], transactions: [] }],
-    }));
-    sessionStorage.setItem('vstock_pid', id);
-    setPlayerId(id);
+    try {
+      await joinGameRequest(nickname.trim());
+    } catch (joinError) {
+      toast.error(joinError instanceof Error ? joinError.message : '게임에 입장하지 못했습니다.');
+    }
   }
 
   const totalAssets = getPlayerTotalAssets(player, state.stocks);
@@ -73,49 +92,17 @@ const StudentDashboard = () => {
     setTradeQty('');
   }
 
-  function executeTrade() {
+  async function executeTrade() {
     if (!tradeStock || !tradeQty) return;
     const qty = parseInt(tradeQty);
     if (isNaN(qty) || qty <= 0) return;
-
-    updateState(s => {
-      const stock = s.stocks.find(st => st.id === tradeStock.id);
-      const pIdx = s.players.findIndex(p => p.id === playerId);
-      if (!stock || pIdx === -1) return s;
-
-      const p = { ...s.players[pIdx] };
-      const newHoldings = [...p.holdings];
-      const hIdx = newHoldings.findIndex(h => h.stockId === stock.id);
-
-      if (tradeMode === 'buy') {
-        const cost = stock.price * qty;
-        if (p.cash < cost) return s;
-        p.cash -= cost;
-        if (hIdx >= 0) {
-          const h = newHoldings[hIdx];
-          const totalQty = h.quantity + qty;
-          newHoldings[hIdx] = { ...h, quantity: totalQty, avgPrice: Math.round((h.avgPrice * h.quantity + stock.price * qty) / totalQty) };
-        } else {
-          newHoldings.push({ stockId: stock.id, quantity: qty, avgPrice: stock.price });
-        }
-      } else {
-        if (hIdx < 0 || newHoldings[hIdx].quantity < qty) return s;
-        newHoldings[hIdx] = { ...newHoldings[hIdx], quantity: newHoldings[hIdx].quantity - qty };
-        p.cash += stock.price * qty;
-        if (newHoldings[hIdx].quantity === 0) newHoldings.splice(hIdx, 1);
-      }
-
-      p.holdings = newHoldings;
-      p.transactions = [
-        { id: crypto.randomUUID(), stockId: stock.id, stockName: stock.name, type: tradeMode, quantity: qty, price: stock.price, timestamp: Date.now() },
-        ...p.transactions,
-      ];
-
-      const newPlayers = [...s.players];
-      newPlayers[pIdx] = p;
-      return { ...s, players: newPlayers };
-    });
-    setTradeStock(null);
+    try {
+      await executeTradeRequest(player.id, tradeStock.id, tradeMode, qty);
+      toast.success(`${tradeStock.name} ${tradeMode === 'buy' ? '매수' : '매도'}가 체결되었습니다.`);
+      setTradeStock(null);
+    } catch (tradeError) {
+      toast.error(tradeError instanceof Error ? tradeError.message : '거래를 처리하지 못했습니다.');
+    }
   }
 
   const currentHolding = tradeStock ? player.holdings.find(h => h.stockId === tradeStock.id) : null;
@@ -128,8 +115,8 @@ const StudentDashboard = () => {
           <div className="flex items-center gap-3">
             <Button variant="ghost" size="sm" onClick={() => navigate('/')}>← 홈</Button>
             <span className="font-bold text-foreground">{player.nickname}</span>
-            <span className={`text-xs px-2 py-0.5 rounded-full ${state.status === 'running' ? 'bg-gain/10 text-gain' : state.status === 'paused' ? 'bg-accent/20 text-accent' : 'bg-loss/10 text-loss'}`}>
-              {state.status === 'running' ? '진행 중' : state.status === 'paused' ? '일시정지' : '종료'}
+            <span className={`text-xs px-2 py-0.5 rounded-full ${state.status === 'running' ? 'bg-gain/10 text-gain' : state.status === 'paused' ? 'bg-accent/20 text-accent' : state.status === 'waiting' ? 'bg-muted text-muted-foreground' : 'bg-loss/10 text-loss'}`}>
+              {state.status === 'running' ? '진행 중' : state.status === 'paused' ? '일시정지' : state.status === 'waiting' ? '대기 중' : '종료'}
             </span>
           </div>
           <div className="flex gap-4 text-xs">
@@ -139,6 +126,12 @@ const StudentDashboard = () => {
           </div>
         </div>
       </div>
+
+      {error && (
+        <div className="px-4 py-2 bg-loss/10 border-b border-loss/20 text-xs text-loss">
+          {error}
+        </div>
+      )}
 
       {/* Active News Banner */}
       {state.activeNews.length > 0 && (
@@ -212,7 +205,7 @@ const StudentDashboard = () => {
           <Card className="bg-card border-border">
             <CardHeader className="pb-2"><CardTitle className="text-sm">🏆 실시간 랭킹</CardTitle></CardHeader>
             <CardContent>
-              <RankingBoard players={state.players} stocks={state.stocks} initialCash={state.initialCash} currentPlayerId={playerId} />
+              <RankingBoard entries={state.leaderboard} currentPlayerId={player.id} />
             </CardContent>
           </Card>
         )}
@@ -276,9 +269,9 @@ const StudentDashboard = () => {
               )}
               <div className="flex gap-2">
                 <Button variant="secondary" className="flex-1" onClick={() => setTradeStock(null)}>취소</Button>
-                <Button className="flex-1" onClick={executeTrade}
-                  disabled={!tradeQty || parseInt(tradeQty) <= 0}>
-                  {tradeMode === 'buy' ? '매수 확인' : '매도 확인'}
+                <Button className="flex-1" onClick={() => void executeTrade()}
+                  disabled={!tradeQty || parseInt(tradeQty) <= 0 || actionPending}>
+                  {actionPending ? '처리 중...' : tradeMode === 'buy' ? '매수 확인' : '매도 확인'}
                 </Button>
               </div>
             </div>
