@@ -70,4 +70,10 @@ export interface GameState {
   newsStrengthMultiplier: number;
   initialCash: number;
   startedAt?: number;
+  currentTick: number;
+  lastTickAt?: number;
+  elapsedGameMs: number;
+  scenarioStartDate: string;
+  scenarioEndDate: string;
+  scenarioDurationSeconds: number;
 }
