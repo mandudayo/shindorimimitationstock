@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '@/hooks/useGameStore';
-import { formatKRW } from '@/lib/gameEngine';
+import {
+  formatKRW,
+  formatScenarioDuration,
+  formatSimulationDate,
+  getSimulationTimeline,
+} from '@/lib/gameEngine';
 import { StockTable } from '@/components/game/StockTable';
 import { RankingBoard } from '@/components/game/RankingBoard';
 import { Button } from '@/components/ui/button';
@@ -10,6 +15,13 @@ import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
 import { LeaderboardEntry, NewsItem } from '@/types/game';
 import { toast } from 'sonner';
+
+const SCENARIO_DURATION_PRESETS = [
+  { seconds: 600, label: '10분 테스트' },
+  { seconds: 3000, label: '50분 수업' },
+  { seconds: 86400, label: '1일' },
+  { seconds: 604800, label: '1주 대회' },
+] as const;
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
@@ -22,6 +34,7 @@ const TeacherDashboard = () => {
     setGameStatus,
     activateNews: activateNewsRequest,
     updateGameSettings,
+    updateScenarioDuration,
     resetGame: resetGameRequest,
     signInAdmin,
     signOutAdmin,
@@ -76,6 +89,13 @@ const TeacherDashboard = () => {
     void runAdminAction(() => updateGameSettings(next));
   };
 
+  const saveScenarioDuration = (seconds: number) => {
+    void runAdminAction(
+      () => updateScenarioDuration(seconds),
+      `시나리오 진행 시간을 ${formatScenarioDuration(seconds)}으로 설정했습니다.`,
+    );
+  };
+
   const handleAdminLogin = async () => {
     if (!email.trim() || !password) return;
     try {
@@ -99,6 +119,7 @@ const TeacherDashboard = () => {
   const elapsed = state.startedAt ? Math.floor((Date.now() - state.startedAt) / 1000) : 0;
   const elapsedMin = Math.floor(elapsed / 60);
   const elapsedSec = elapsed % 60;
+  const simulation = getSimulationTimeline(state);
 
   if (loading && !state.id) {
     return (
@@ -164,6 +185,9 @@ const TeacherDashboard = () => {
               {elapsedMin}:{elapsedSec.toString().padStart(2, '0')}
             </span>
           )}
+          <span className="text-xs text-primary font-mono">
+            가상 {formatSimulationDate(state)} · {(simulation.progress * 100).toFixed(3)}%
+          </span>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-muted-foreground">참가자: {state.leaderboard.length}명</span>
@@ -247,6 +271,41 @@ const TeacherDashboard = () => {
               <CardTitle className="text-sm text-foreground">⚙️ 난이도 설정</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="rounded-md bg-secondary/40 p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-muted-foreground">1년 시나리오 진행</span>
+                  <span className="font-mono text-foreground">
+                    Day {simulation.simulatedDay}/{simulation.totalDays} · 틱 {state.currentTick}
+                  </span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className="h-full rounded-full bg-primary transition-[width] duration-300"
+                    style={{ width: `${simulation.progress * 100}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  실제 {formatScenarioDuration(state.scenarioDurationSeconds)} 동안 {state.scenarioStartDate}부터 {state.scenarioEndDate}까지 진행
+                </p>
+                <div className="grid grid-cols-2 gap-1.5 pt-1">
+                  {SCENARIO_DURATION_PRESETS.map((preset) => (
+                    <Button
+                      key={preset.seconds}
+                      type="button"
+                      size="sm"
+                      variant={state.scenarioDurationSeconds === preset.seconds ? 'default' : 'outline'}
+                      className="h-7 px-2 text-[11px]"
+                      disabled={state.status !== 'waiting' || state.currentTick !== 0 || actionPending}
+                      onClick={() => saveScenarioDuration(preset.seconds)}
+                    >
+                      {preset.label}
+                    </Button>
+                  ))}
+                </div>
+                {state.status !== 'waiting' && (
+                  <p className="text-[11px] text-muted-foreground">진행 시간은 초기화 후 변경할 수 있습니다.</p>
+                )}
+              </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">
                   전체 변동성: {settings.volatilityMultiplier.toFixed(1)}x
