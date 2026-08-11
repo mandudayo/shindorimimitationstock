@@ -68,10 +68,17 @@ export type Database = {
         Row: {
           code: string
           created_at: string
+          current_tick: number
+          elapsed_game_ms: number
           ended_at: string | null
           id: string
           initial_cash: number
+          last_tick_at: string | null
+          market_seed: number
           news_strength_multiplier: number
+          scenario_duration_seconds: number
+          scenario_end_date: string
+          scenario_start_date: string
           started_at: string | null
           status: Database["public"]["Enums"]["game_status"]
           tick_interval_ms: number
@@ -81,10 +88,17 @@ export type Database = {
         Insert: {
           code: string
           created_at?: string
+          current_tick?: number
+          elapsed_game_ms?: number
           ended_at?: string | null
           id?: string
           initial_cash?: number
+          last_tick_at?: string | null
+          market_seed?: number
           news_strength_multiplier?: number
+          scenario_duration_seconds?: number
+          scenario_end_date?: string
+          scenario_start_date?: string
           started_at?: string | null
           status?: Database["public"]["Enums"]["game_status"]
           tick_interval_ms?: number
@@ -94,10 +108,17 @@ export type Database = {
         Update: {
           code?: string
           created_at?: string
+          current_tick?: number
+          elapsed_game_ms?: number
           ended_at?: string | null
           id?: string
           initial_cash?: number
+          last_tick_at?: string | null
+          market_seed?: number
           news_strength_multiplier?: number
+          scenario_duration_seconds?: number
+          scenario_end_date?: string
+          scenario_start_date?: string
           started_at?: string | null
           status?: Database["public"]["Enums"]["game_status"]
           tick_interval_ms?: number
@@ -290,6 +311,54 @@ export type Database = {
           },
         ]
       }
+      stock_price_history: {
+        Row: {
+          change_pct: number
+          created_at: string
+          game_id: string
+          previous_price: number
+          price: number
+          simulated_at: string
+          stock_id: string
+          tick: number
+        }
+        Insert: {
+          change_pct: number
+          created_at?: string
+          game_id: string
+          previous_price: number
+          price: number
+          simulated_at: string
+          stock_id: string
+          tick: number
+        }
+        Update: {
+          change_pct?: number
+          created_at?: string
+          game_id?: string
+          previous_price?: number
+          price?: number
+          simulated_at?: string
+          stock_id?: string
+          tick?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stock_price_history_game_id_fkey"
+            columns: ["game_id"]
+            isOneToOne: false
+            referencedRelation: "games"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "stock_price_history_game_id_stock_id_fkey"
+            columns: ["game_id", "stock_id"]
+            isOneToOne: false
+            referencedRelation: "stocks"
+            referencedColumns: ["game_id", "id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           created_at: string
@@ -350,6 +419,10 @@ export type Database = {
         Args: { p_game_id: string; p_news_id: string }
         Returns: undefined
       }
+      advance_market: {
+        Args: { p_game_id: string }
+        Returns: Json
+      }
       execute_trade: {
         Args: {
           p_player_id: string
@@ -385,6 +458,13 @@ export type Database = {
           p_news_strength_multiplier: number
           p_tick_interval_ms: number
           p_volatility_multiplier: number
+        }
+        Returns: undefined
+      }
+      update_scenario_duration: {
+        Args: {
+          p_game_id: string
+          p_scenario_duration_seconds: number
         }
         Returns: undefined
       }
