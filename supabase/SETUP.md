@@ -7,8 +7,8 @@ Lovable/Supabase project before the updated frontend is deployed.
    Students still enter only a nickname; the anonymous account is created invisibly and is
    persisted in their browser.
 2. Apply the migrations in timestamp order with the Lovable/Supabase migration workflow:
-   - `20260809010000_multiplayer_foundation.sql`
-   - `20260809020000_market_simulation_engine.sql`
+   - `20260808234435_6c703551-b5a1-4e03-8cfb-f88a973b4dc5.sql` (multiplayer foundation)
+   - `20260809010000_multiplayer_foundation.sql` (additive market simulation engine)
    The second migration is additive. It keeps existing players and transactions, and adds the
    server market clock, compressed scenario timeline, news price effects, and sampled price
    history.
