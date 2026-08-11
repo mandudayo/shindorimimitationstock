@@ -146,6 +146,14 @@ export function mapGameSnapshot(rows: GameSnapshotRows): GameState {
     startedAt: rows.game.started_at
       ? new Date(rows.game.started_at).getTime()
       : undefined,
+    currentTick: toNumber(rows.game.current_tick),
+    lastTickAt: rows.game.last_tick_at
+      ? new Date(rows.game.last_tick_at).getTime()
+      : undefined,
+    elapsedGameMs: toNumber(rows.game.elapsed_game_ms),
+    scenarioStartDate: rows.game.scenario_start_date,
+    scenarioEndDate: rows.game.scenario_end_date,
+    scenarioDurationSeconds: rows.game.scenario_duration_seconds,
   };
 }
 
@@ -290,10 +298,28 @@ export async function updateGameSettings(
   if (error) throw new Error(error.message);
 }
 
+export async function updateScenarioDuration(
+  gameId: string,
+  scenarioDurationSeconds: number,
+): Promise<void> {
+  const { error } = await supabase.rpc('update_scenario_duration', {
+    p_game_id: gameId,
+    p_scenario_duration_seconds: scenarioDurationSeconds,
+  });
+  if (error) throw new Error(error.message);
+}
+
 export async function activateNews(gameId: string, newsId: string): Promise<void> {
   const { error } = await supabase.rpc('activate_news', {
     p_game_id: gameId,
     p_news_id: newsId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function advanceMarket(gameId: string): Promise<void> {
+  const { error } = await supabase.rpc('advance_market', {
+    p_game_id: gameId,
   });
   if (error) throw new Error(error.message);
 }
