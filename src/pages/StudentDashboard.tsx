@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '@/hooks/useGameStore';
-import { formatKRW, getPlayerTotalAssets, getPlayerReturn } from '@/lib/gameEngine';
+import {
+  formatKRW,
+  formatSimulationDate,
+  getPlayerTotalAssets,
+  getPlayerReturn,
+  getSimulationTimeline,
+} from '@/lib/gameEngine';
 import { StockTable } from '@/components/game/StockTable';
 import { RankingBoard } from '@/components/game/RankingBoard';
 import { Button } from '@/components/ui/button';
@@ -84,6 +90,7 @@ const StudentDashboard = () => {
 
   const totalAssets = getPlayerTotalAssets(player, state.stocks);
   const returnPct = getPlayerReturn(player, state.stocks, state.initialCash);
+  const simulation = getSimulationTimeline(state);
 
   function openTrade(stock: Stock, mode: 'buy' | 'sell') {
     if (state.status !== 'running') return;
@@ -123,6 +130,17 @@ const StudentDashboard = () => {
             <div><span className="text-muted-foreground">보유현금 </span><span className="font-mono font-bold text-foreground">{formatKRW(player.cash)}</span></div>
             <div><span className="text-muted-foreground">총자산 </span><span className="font-mono font-bold text-foreground">{formatKRW(totalAssets)}</span></div>
             <div><span className="text-muted-foreground">수익률 </span><span className={`font-mono font-bold ${returnPct >= 0 ? 'text-gain' : 'text-loss'}`}>{returnPct >= 0 ? '+' : ''}{returnPct.toFixed(2)}%</span></div>
+          </div>
+          <div className="mt-2 flex items-center gap-3 text-[11px] text-muted-foreground">
+            <span className="font-mono text-primary">가상 {formatSimulationDate(state)}</span>
+            <span>Day {simulation.simulatedDay}/{simulation.totalDays}</span>
+            <div className="h-1.5 min-w-20 flex-1 overflow-hidden rounded-full bg-secondary">
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-300"
+                style={{ width: `${simulation.progress * 100}%` }}
+              />
+            </div>
+            <span className="font-mono">{(simulation.progress * 100).toFixed(3)}%</span>
           </div>
         </div>
       </div>
