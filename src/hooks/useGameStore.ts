@@ -3,6 +3,7 @@ import { createInitialState } from '@/lib/gameEngine';
 import type { GameState } from '@/types/game';
 import {
   activateNews as activateNewsRequest,
+  advanceMarket as advanceMarketRequest,
   executeTrade as executeTradeRequest,
   joinGame as joinGameRequest,
   loadGameSnapshot,
@@ -13,6 +14,7 @@ import {
   subscribeToGame,
   unsubscribeFromGame,
   updateGameSettings as updateGameSettingsRequest,
+  updateScenarioDuration as updateScenarioDurationRequest,
 } from '@/services/gameService';
 
 function normalizeError(error: unknown): string {
@@ -27,6 +29,7 @@ export function useGameStore() {
   const [error, setError] = useState<string>();
   const [isAdmin, setIsAdmin] = useState(false);
   const refreshSequence = useRef(0);
+  const marketAdvancePending = useRef(false);
 
   const refresh = useCallback(async (showLoading = false) => {
     const sequence = ++refreshSequence.current;
@@ -64,6 +67,34 @@ export function useGameStore() {
       void unsubscribeFromGame(channel);
     };
   }, [refresh, state.id]);
+
+  // The operator browser drives the server clock, but all calculations happen
+  // inside the database. The RPC is time-gated and row-locked, so duplicated
+  // tabs cannot create extra price ticks.
+  useEffect(() => {
+    if (!isAdmin || !state.id || state.status !== 'running') return;
+
+    let disposed = false;
+    const advance = async () => {
+      if (disposed || marketAdvancePending.current) return;
+      marketAdvancePending.current = true;
+      try {
+        await advanceMarketRequest(state.id!);
+      } catch (advanceError) {
+        if (!disposed) setError(normalizeError(advanceError));
+      } finally {
+        marketAdvancePending.current = false;
+      }
+    };
+
+    const cadence = Math.max(750, Math.floor(state.tickInterval / 2));
+    const interval = setInterval(() => void advance(), cadence);
+
+    return () => {
+      disposed = true;
+      clearInterval(interval);
+    };
+  }, [isAdmin, state.id, state.status, state.tickInterval]);
 
   // The leaderboard RPC intentionally exposes only aggregate account values,
   // so it cannot use row-level realtime events for other players. A light poll
@@ -119,6 +150,8 @@ export function useGameStore() {
         'tickInterval' | 'volatilityMultiplier' | 'newsStrengthMultiplier'
       >,
     ) => runAction(() => updateGameSettingsRequest(requireGameId(), settings)),
+    updateScenarioDuration: (scenarioDurationSeconds: number) =>
+      runAction(() => updateScenarioDurationRequest(requireGameId(), scenarioDurationSeconds)),
     resetGame: () => runAction(() => resetGameRequest(requireGameId())),
     signInAdmin: (email: string, password: string) =>
       runAction(() => signInAdminRequest(email, password)),
