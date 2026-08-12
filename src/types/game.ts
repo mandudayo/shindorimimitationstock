@@ -49,16 +49,31 @@ export interface Player {
   transactions: Transaction[];
 }
 
+export interface LeaderboardEntry {
+  playerId: string;
+  nickname: string;
+  totalAssets: number;
+  returnPct: number;
+}
+
 export interface GameState {
+  id?: string;
   status: GameStatus;
   stocks: Stock[];
   newsPool: NewsItem[];
   activeNews: NewsItem[];
   newsHistory: NewsItem[];
-  players: Player[];
+  currentPlayer?: Player;
+  leaderboard: LeaderboardEntry[];
   tickInterval: number;
   volatilityMultiplier: number;
   newsStrengthMultiplier: number;
   initialCash: number;
   startedAt?: number;
+  currentTick: number;
+  lastTickAt?: number;
+  elapsedGameMs: number;
+  scenarioStartDate: string;
+  scenarioEndDate: string;
+  scenarioDurationSeconds: number;
 }

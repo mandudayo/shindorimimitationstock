@@ -35,40 +35,62 @@ export function createInitialState(): GameState {
     newsPool: DEFAULT_NEWS.map(n => ({ ...n })),
     activeNews: [],
     newsHistory: [],
-    players: [],
+    currentPlayer: undefined,
+    leaderboard: [],
     tickInterval: 3000,
     volatilityMultiplier: 1.0,
     newsStrengthMultiplier: 1.0,
     initialCash: 1000000,
+    currentTick: 0,
+    elapsedGameMs: 0,
+    scenarioStartDate: '2025-01-01',
+    scenarioEndDate: '2025-12-31',
+    scenarioDurationSeconds: 604800,
   };
 }
 
-export function processTick(state: GameState): GameState {
-  if (state.status !== 'running') return state;
+export interface SimulationTimeline {
+  progress: number;
+  simulatedAt: Date;
+  simulatedDay: number;
+  totalDays: number;
+}
 
-  const now = Date.now();
-  const activeNews = state.activeNews.filter(
-    n => n.activatedAt && (now - n.activatedAt) < n.duration * 1000
-  );
+function parseLocalDate(value: string): Date {
+  const [year, month, day] = value.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
 
-  const volMap: Record<string, number> = { low: 0.003, medium: 0.008, high: 0.018 };
+export function getSimulationTimeline(state: GameState): SimulationTimeline {
+  const start = parseLocalDate(state.scenarioStartDate);
+  const end = parseLocalDate(state.scenarioEndDate);
+  const totalMs = Math.max(1, state.scenarioDurationSeconds * 1000);
+  const progress = Math.max(0, Math.min(1, state.elapsedGameMs / totalMs));
+  const scenarioSpanMs = Math.max(0, end.getTime() - start.getTime());
+  const simulatedAt = new Date(start.getTime() + scenarioSpanMs * progress);
+  const totalDays = Math.max(1, Math.round(scenarioSpanMs / 86400000) + 1);
+  const simulatedDay = Math.min(totalDays, Math.floor((totalDays - 1) * progress) + 1);
 
-  const stocks = state.stocks.map(stock => {
-    const baseVol = (volMap[stock.volatility] || 0.008) * state.volatilityMultiplier;
-    let change = (Math.random() - 0.5) * 2 * baseVol;
+  return { progress, simulatedAt, simulatedDay, totalDays };
+}
 
-    for (const news of activeNews) {
-      const affects = news.type.startsWith('market') || news.targetStockId === stock.id;
-      if (!affects) continue;
-      const dir = news.type.includes('positive') ? 1 : -1;
-      change += dir * baseVol * 0.4 * news.strength * state.newsStrengthMultiplier;
-    }
-
-    const newPrice = Math.max(100, Math.round(stock.price * (1 + change)));
-    return { ...stock, previousPrice: stock.price, price: newPrice };
+export function formatSimulationDate(state: GameState): string {
+  const { simulatedAt } = getSimulationTimeline(state);
+  return simulatedAt.toLocaleString('ko-KR', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
   });
+}
 
-  return { ...state, stocks, activeNews };
+export function formatScenarioDuration(seconds: number): string {
+  if (seconds % 86400 === 0) return `${seconds / 86400}일`;
+  if (seconds % 3600 === 0) return `${seconds / 3600}시간`;
+  if (seconds % 60 === 0) return `${seconds / 60}분`;
+  return `${seconds}초`;
 }
 
 export function getPlayerTotalAssets(player: Player, stocks: Stock[]): number {

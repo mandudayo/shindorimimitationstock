@@ -1,21 +1,13 @@
-import { Player, Stock } from '@/types/game';
-import { getPlayerTotalAssets, getPlayerReturn, formatKRW } from '@/lib/gameEngine';
+import { LeaderboardEntry } from '@/types/game';
+import { formatKRW } from '@/lib/gameEngine';
 
 interface RankingBoardProps {
-  players: Player[];
-  stocks: Stock[];
-  initialCash: number;
+  entries: LeaderboardEntry[];
   currentPlayerId?: string;
 }
 
-export function RankingBoard({ players, stocks, initialCash, currentPlayerId }: RankingBoardProps) {
-  const ranked = [...players]
-    .map(p => ({
-      ...p,
-      totalAssets: getPlayerTotalAssets(p, stocks),
-      returnPct: getPlayerReturn(p, stocks, initialCash),
-    }))
-    .sort((a, b) => b.totalAssets - a.totalAssets);
+export function RankingBoard({ entries, currentPlayerId }: RankingBoardProps) {
+  const ranked = [...entries].sort((a, b) => b.totalAssets - a.totalAssets);
 
   if (ranked.length === 0) {
     return <p className="text-muted-foreground text-sm text-center py-4">아직 참가자가 없습니다</p>;
@@ -24,11 +16,11 @@ export function RankingBoard({ players, stocks, initialCash, currentPlayerId }: 
   return (
     <div className="space-y-1">
       {ranked.map((p, i) => {
-        const isCurrent = p.id === currentPlayerId;
+        const isCurrent = p.playerId === currentPlayerId;
         const medal = i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}`;
         return (
           <div
-            key={p.id}
+            key={p.playerId}
             className={`flex items-center justify-between py-2 px-3 rounded-md text-sm ${
               isCurrent ? 'bg-primary/10 border border-primary/30' : 'hover:bg-secondary/30'
             }`}

@@ -1,47 +1,109 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useGameStore, saveGameState } from '@/hooks/useGameStore';
-import { processTick, createInitialState, formatKRW, getPlayerReturn, getPlayerTotalAssets } from '@/lib/gameEngine';
+import { useGameStore } from '@/hooks/useGameStore';
+import {
+  formatKRW,
+  formatScenarioDuration,
+  formatSimulationDate,
+  getSimulationTimeline,
+} from '@/lib/gameEngine';
 import { StockTable } from '@/components/game/StockTable';
 import { RankingBoard } from '@/components/game/RankingBoard';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
 import { Slider } from '@/components/ui/slider';
-import { NewsItem } from '@/types/game';
+import { LeaderboardEntry, NewsItem } from '@/types/game';
+import { toast } from 'sonner';
+
+const SCENARIO_DURATION_PRESETS = [
+  { seconds: 600, label: '10분 테스트' },
+  { seconds: 3000, label: '50분 수업' },
+  { seconds: 86400, label: '1일' },
+  { seconds: 604800, label: '1주 대회' },
+] as const;
 
 const TeacherDashboard = () => {
   const navigate = useNavigate();
-  const { state, updateState } = useGameStore();
+  const {
+    state,
+    loading,
+    actionPending,
+    error,
+    isAdmin,
+    setGameStatus,
+    activateNews: activateNewsRequest,
+    updateGameSettings,
+    updateScenarioDuration,
+    resetGame: resetGameRequest,
+    signInAdmin,
+    signOutAdmin,
+  } = useGameStore();
   const [activeTab, setActiveTab] = useState<'market' | 'news' | 'ranking'>('market');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [settings, setSettings] = useState({
+    tickInterval: state.tickInterval,
+    volatilityMultiplier: state.volatilityMultiplier,
+    newsStrengthMultiplier: state.newsStrengthMultiplier,
+  });
+  const [, setClock] = useState(0);
 
-  // Tick engine
   useEffect(() => {
-    if (state.status !== 'running') return;
-    const interval = setInterval(() => {
-      updateState(processTick);
-    }, state.tickInterval);
-    return () => clearInterval(interval);
-  }, [state.status, state.tickInterval, updateState]);
+    setSettings({
+      tickInterval: state.tickInterval,
+      volatilityMultiplier: state.volatilityMultiplier,
+      newsStrengthMultiplier: state.newsStrengthMultiplier,
+    });
+  }, [state.newsStrengthMultiplier, state.tickInterval, state.volatilityMultiplier]);
 
-  const startGame = () => updateState(s => ({ ...s, status: 'running', startedAt: s.startedAt || Date.now() }));
-  const pauseGame = () => updateState(s => ({ ...s, status: 'paused' }));
-  const resumeGame = () => updateState(s => ({ ...s, status: 'running' }));
-  const endGame = () => updateState(s => ({ ...s, status: 'ended' }));
-  const resetGame = () => { saveGameState(createInitialState()); window.location.reload(); };
+  useEffect(() => {
+    const interval = setInterval(() => setClock((value) => value + 1), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const runAdminAction = async (action: () => Promise<unknown>, successMessage?: string) => {
+    try {
+      await action();
+      if (successMessage) toast.success(successMessage);
+    } catch (actionError) {
+      toast.error(actionError instanceof Error ? actionError.message : '요청을 처리하지 못했습니다.');
+    }
+  };
+
+  const startGame = () => runAdminAction(() => setGameStatus('running'), '게임을 시작했습니다.');
+  const pauseGame = () => runAdminAction(() => setGameStatus('paused'), '게임을 일시정지했습니다.');
+  const resumeGame = () => runAdminAction(() => setGameStatus('running'), '게임을 재개했습니다.');
+  const endGame = () => runAdminAction(() => setGameStatus('ended'), '게임을 종료했습니다.');
+  const resetGame = () => {
+    if (!window.confirm('참가자·보유 종목·거래 내역이 모두 삭제됩니다. 정말 초기화할까요?')) return;
+    void runAdminAction(resetGameRequest, '새 게임 상태로 초기화했습니다.');
+  };
 
   const activateNews = (newsId: string) => {
-    updateState(s => {
-      const news = s.newsPool.find(n => n.id === newsId);
-      if (!news) return s;
-      // Don't activate if already active
-      if (s.activeNews.some(n => n.id === newsId)) return s;
-      const activated = { ...news, activatedAt: Date.now() };
-      return {
-        ...s,
-        activeNews: [...s.activeNews, activated],
-        newsHistory: [activated, ...s.newsHistory],
-      };
-    });
+    void runAdminAction(() => activateNewsRequest(newsId), '뉴스를 공개했습니다.');
+  };
+
+  const saveSettings = (next: typeof settings) => {
+    setSettings(next);
+    void runAdminAction(() => updateGameSettings(next));
+  };
+
+  const saveScenarioDuration = (seconds: number) => {
+    void runAdminAction(
+      () => updateScenarioDuration(seconds),
+      `시나리오 진행 시간을 ${formatScenarioDuration(seconds)}으로 설정했습니다.`,
+    );
+  };
+
+  const handleAdminLogin = async () => {
+    if (!email.trim() || !password) return;
+    try {
+      await signInAdmin(email.trim(), password);
+      setPassword('');
+    } catch (loginError) {
+      toast.error(loginError instanceof Error ? loginError.message : '로그인하지 못했습니다.');
+    }
   };
 
   const statusColors: Record<string, string> = {
@@ -57,6 +119,56 @@ const TeacherDashboard = () => {
   const elapsed = state.startedAt ? Math.floor((Date.now() - state.startedAt) / 1000) : 0;
   const elapsedMin = Math.floor(elapsed / 60);
   const elapsedSec = elapsed % 60;
+  const simulation = getSimulationTimeline(state);
+
+  if (loading && !state.id) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <p className="text-sm text-muted-foreground">운영자 화면을 불러오는 중...</p>
+      </div>
+    );
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
+        <Card className="w-full max-w-sm bg-card border-border">
+          <CardHeader>
+            <CardTitle className="text-xl">🏫 운영자 로그인</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-xs text-muted-foreground">
+              학생은 이 화면을 사용할 수 없습니다. 등록된 운영자 계정으로 로그인해주세요.
+            </p>
+            <Input
+              type="email"
+              autoComplete="username"
+              placeholder="운영자 이메일"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+            <Input
+              type="password"
+              autoComplete="current-password"
+              placeholder="비밀번호"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              onKeyDown={(event) => event.key === 'Enter' && void handleAdminLogin()}
+            />
+            <Button
+              className="w-full"
+              onClick={() => void handleAdminLogin()}
+              disabled={!email.trim() || !password || actionPending}
+            >
+              {actionPending ? '확인 중...' : '로그인'}
+            </Button>
+            {error && <p className="text-xs text-loss">{error}</p>}
+          </CardContent>
+        </Card>
+        <Button variant="ghost" size="sm" className="mt-4" onClick={() => navigate('/')}>← 홈으로</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -73,18 +185,28 @@ const TeacherDashboard = () => {
               {elapsedMin}:{elapsedSec.toString().padStart(2, '0')}
             </span>
           )}
+          <span className="text-xs text-primary font-mono">
+            가상 {formatSimulationDate(state)} · {(simulation.progress * 100).toFixed(3)}%
+          </span>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-muted-foreground">참가자: {state.players.length}명</span>
-          {state.status === 'waiting' && <Button size="sm" onClick={startGame}>▶️ 게임 시작</Button>}
-          {state.status === 'running' && <Button size="sm" variant="secondary" onClick={pauseGame}>⏸ 일시정지</Button>}
-          {state.status === 'paused' && <Button size="sm" onClick={resumeGame}>▶️ 재개</Button>}
+          <span className="text-xs text-muted-foreground">참가자: {state.leaderboard.length}명</span>
+          {state.status === 'waiting' && <Button size="sm" onClick={() => void startGame()} disabled={actionPending}>▶️ 게임 시작</Button>}
+          {state.status === 'running' && <Button size="sm" variant="secondary" onClick={() => void pauseGame()} disabled={actionPending}>⏸ 일시정지</Button>}
+          {state.status === 'paused' && <Button size="sm" onClick={() => void resumeGame()} disabled={actionPending}>▶️ 재개</Button>}
           {(state.status === 'running' || state.status === 'paused') && (
-            <Button size="sm" variant="destructive" onClick={endGame}>⏹ 종료</Button>
+            <Button size="sm" variant="destructive" onClick={() => void endGame()} disabled={actionPending}>⏹ 종료</Button>
           )}
-          <Button size="sm" variant="outline" onClick={resetGame}>🔄 초기화</Button>
+          <Button size="sm" variant="outline" onClick={resetGame} disabled={actionPending}>🔄 초기화</Button>
+          <Button size="sm" variant="ghost" onClick={() => void runAdminAction(signOutAdmin)}>로그아웃</Button>
         </div>
       </div>
+
+      {error && (
+        <div className="px-4 py-2 bg-loss/10 border-b border-loss/20 text-xs text-loss">
+          {error}
+        </div>
+      )}
 
       {/* Mobile Tabs */}
       <div className="flex border-b border-border md:hidden">
@@ -134,7 +256,7 @@ const TeacherDashboard = () => {
                   news={news}
                   isActive={state.activeNews.some(n => n.id === news.id)}
                   onActivate={() => activateNews(news.id)}
-                  disabled={state.status !== 'running'}
+                  disabled={state.status !== 'running' || actionPending}
                 />
               ))}
             </CardContent>
@@ -149,34 +271,75 @@ const TeacherDashboard = () => {
               <CardTitle className="text-sm text-foreground">⚙️ 난이도 설정</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="rounded-md bg-secondary/40 p-3 space-y-2">
+                <div className="flex items-center justify-between gap-2 text-xs">
+                  <span className="text-muted-foreground">1년 시나리오 진행</span>
+                  <span className="font-mono text-foreground">
+                    Day {simulation.simulatedDay}/{simulation.totalDays} · 틱 {state.currentTick}
+                  </span>
+                </div>
+                <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+                  <div
+                    className="h-full rounded-full bg-primary transition-[width] duration-300"
+                    style={{ width: `${simulation.progress * 100}%` }}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  실제 {formatScenarioDuration(state.scenarioDurationSeconds)} 동안 {state.scenarioStartDate}부터 {state.scenarioEndDate}까지 진행
+                </p>
+                <div className="grid grid-cols-2 gap-1.5 pt-1">
+                  {SCENARIO_DURATION_PRESETS.map((preset) => (
+                    <Button
+                      key={preset.seconds}
+                      type="button"
+                      size="sm"
+                      variant={state.scenarioDurationSeconds === preset.seconds ? 'default' : 'outline'}
+                      className="h-7 px-2 text-[11px]"
+                      disabled={state.status !== 'waiting' || state.currentTick !== 0 || actionPending}
+                      onClick={() => saveScenarioDuration(preset.seconds)}
+                    >
+                      {preset.label}
+                    </Button>
+                  ))}
+                </div>
+                {state.status !== 'waiting' && (
+                  <p className="text-[11px] text-muted-foreground">진행 시간은 초기화 후 변경할 수 있습니다.</p>
+                )}
+              </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">
-                  전체 변동성: {state.volatilityMultiplier.toFixed(1)}x
+                  전체 변동성: {settings.volatilityMultiplier.toFixed(1)}x
                 </label>
                 <Slider
-                  value={[state.volatilityMultiplier]}
+                  value={[settings.volatilityMultiplier]}
                   min={0.2} max={3.0} step={0.1}
-                  onValueChange={([v]) => updateState(s => ({ ...s, volatilityMultiplier: v }))}
+                  onValueChange={([value]) => setSettings((current) => ({ ...current, volatilityMultiplier: value }))}
+                  onValueCommit={([value]) => saveSettings({ ...settings, volatilityMultiplier: value })}
+                  disabled={actionPending}
                 />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">
-                  뉴스 영향력: {state.newsStrengthMultiplier.toFixed(1)}x
+                  뉴스 영향력: {settings.newsStrengthMultiplier.toFixed(1)}x
                 </label>
                 <Slider
-                  value={[state.newsStrengthMultiplier]}
+                  value={[settings.newsStrengthMultiplier]}
                   min={0.2} max={3.0} step={0.1}
-                  onValueChange={([v]) => updateState(s => ({ ...s, newsStrengthMultiplier: v }))}
+                  onValueChange={([value]) => setSettings((current) => ({ ...current, newsStrengthMultiplier: value }))}
+                  onValueCommit={([value]) => saveSettings({ ...settings, newsStrengthMultiplier: value })}
+                  disabled={actionPending}
                 />
               </div>
               <div>
                 <label className="text-xs text-muted-foreground mb-1 block">
-                  틱 간격: {(state.tickInterval / 1000).toFixed(1)}초
+                  틱 간격: {(settings.tickInterval / 1000).toFixed(1)}초
                 </label>
                 <Slider
-                  value={[state.tickInterval]}
+                  value={[settings.tickInterval]}
                   min={1000} max={10000} step={500}
-                  onValueChange={([v]) => updateState(s => ({ ...s, tickInterval: v }))}
+                  onValueChange={([value]) => setSettings((current) => ({ ...current, tickInterval: value }))}
+                  onValueCommit={([value]) => saveSettings({ ...settings, tickInterval: value })}
+                  disabled={actionPending}
                 />
               </div>
             </CardContent>
@@ -187,7 +350,7 @@ const TeacherDashboard = () => {
               <CardTitle className="text-sm text-foreground">🏆 실시간 랭킹</CardTitle>
             </CardHeader>
             <CardContent>
-              <RankingBoard players={state.players} stocks={state.stocks} initialCash={state.initialCash} />
+              <RankingBoard entries={state.leaderboard} />
             </CardContent>
           </Card>
 
@@ -198,7 +361,7 @@ const TeacherDashboard = () => {
                 <CardTitle className="text-sm text-foreground">📋 최종 결과</CardTitle>
               </CardHeader>
               <CardContent>
-                <GameResults players={state.players} stocks={state.stocks} initialCash={state.initialCash} />
+                <GameResults entries={state.leaderboard} />
               </CardContent>
             </Card>
           )}
@@ -304,15 +467,12 @@ function NewsButton({ news, isActive, onActivate, disabled }: {
   );
 }
 
-function GameResults({ players, stocks, initialCash }: {
-  players: typeof TeacherDashboard extends never ? never : any[];
-  stocks: any[]; initialCash: number;
-}) {
-  const ranked = players
-    .map(p => ({
-      nickname: p.nickname,
-      total: getPlayerTotalAssets(p, stocks),
-      ret: getPlayerReturn(p, stocks, initialCash),
+function GameResults({ entries }: { entries: LeaderboardEntry[] }) {
+  const ranked = [...entries]
+    .map((entry) => ({
+      nickname: entry.nickname,
+      total: entry.totalAssets,
+      ret: entry.returnPct,
     }))
     .sort((a, b) => b.total - a.total);
 
