@@ -69,7 +69,7 @@ begin
   end if;
 
   if p_target_multiplier not between 0.4 and 2.0 then
-    raise exception '목표 가격은 시작가의 40%~200% 사이여야 합니다.';
+    raise exception using message = '목표 가격은 시작가의 40%~200% 사이여야 합니다.';
   end if;
 
   select * into v_game
